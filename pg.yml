@@ -3,17 +3,17 @@
   hosts: db_servers
   become: yes
   tasks:
-    - name:
+    - name: Install EPEL
       ansible.builtin.yum:
         name: epel-release
         state: present
-    
+
     - name: Install PostreSQL remote repo
       ansible.builtin.yum:
         name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
         state: present
 
-    - name:
+    - name: Install PostgreSQL and psycopg2(for community.postgresql ansible module)
       ansible.builtin.yum:
         name: 
           - postgresql15
@@ -30,20 +30,24 @@
         state: enabled
 
 
-- name: Prep Master
+- name: Prepare Master server
   hosts: master
   become: yes
   tasks:
+    # Проверяем наличие конфига/БД на текущем сервере. Если он есть, то следующий шаг пропускаем.
     - name: Get stats of a file
       ansible.builtin.stat:
         path: /var/lib/pgsql/15/data/postgresql.conf
       register: pgc
 
+    # Создаем базу с нуля. Можно будет заменить этот блок вытягиванием БД из резерва.
     - name: Init DB
       ansible.builtin.shell: |
         /usr/pgsql-15/bin/postgresql-15-setup initdb
       when: not pgc.stat.exists
 
+
+    # Кладем конфиг. Если новый то хендлером перезапускаем в конце сервис
     - name: Copy postgresql.conf
       ansible.builtin.copy:
         src: postgresql.conf
@@ -53,32 +57,41 @@
         mode: '0600'
         force: true
 
+    # Запускаем сервис т.к. слоты и пользователь репликации добавляются уже на работающей БД
     - name: Start service PostgreSQL
       ansible.builtin.service:
         name: postgresql-15
         state: started
 
-          #    - name: Add replication role
-          #      become_user: postgres
-          #      ansible.builtin.shell: |
-          #        psql -c "CREATE ROLE repluser WITH REPLICATION LOGIN;"
-          #      register: result
-          #      failed_when: "'already exists' not in result.stderr and 'CREATE ROLE' not in result.stdout"
+    # Тут делал добавление пользователя методами ansible ,tp 
+#    - name: Add replication role
+#      become_user: postgres
+#      ansible.builtin.shell: |
+#        psql -c "CREATE ROLE repluser WITH REPLICATION LOGIN;"
+#      register: result
+#      failed_when: "'already exists' not in result.stderr and 'CREATE ROLE' not in result.stdout"
 
+    # Добавляем пользователя с правами на репликацию и логин
     - name: add repluser
       become_user: postgres
       community.postgresql.postgresql_user:
         name: repluser
         role_attr_flags: REPLICATION,LOGIN
 
+    # Добавляем хотсы с которых можно будет соединиться с БД. В Рамках теста метод выбрал trust. Стоит заменить на md5
     - name: Edit pg_hba.conf
       lineinfile:
         path: /var/lib/pgsql/15/data/pg_hba.conf
-        line: "host   replication   repluser    {{ item }}/32    trust"
-      with_items:
-        - "192.168.1.14"
-        - "192.168.1.15"
+        line: "host   replication   repluser    {{ hostvars[item].ansible_host }}/32    trust"
+      with_items: "{{ groups.db_servers }}"
 
+    # Создаем слот для репликации/бекапа
+    - name: Create physical_one physical slot if doesn't exist
+      become_user: postgres
+      community.postgresql.postgresql_slot:
+        slot_name: replislot
+
+    # Перенести в хендлер
     - name: restart PG
       ansible.builtin.service:
         name: postgresql-15
@@ -89,3 +102,23 @@
   hosts: standby
   become: yes
   tasks:
+    # Проверяю проводилась ли настройка сервера ранее. Если файл конфига есть, то БД уже настраивалась ранее
+    - name: Check DB
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/15/data/postgresql.conf
+      register: pgc
+
+    # C Master сервер получаем бекап кластера postregsql
+    - name: Get backup DB
+      become_user: postgres
+      ansible.builtin.shell: |
+        pg_basebackup -P -R -h {{ hostvars[item].ansible_host }} -U repluser -D /var/lib/pgsql/15/data -S physical_one
+      when: not pgc.stat.exists
+      with_items: "{{ groups.master }}"
+
+    # Запускаем сервис
+    - name: Start service PostgreSQL
+      ansible.builtin.service:
+        name: postgresql-15
+        state: started
+
