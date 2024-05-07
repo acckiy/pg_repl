@@ -3,10 +3,10 @@
   hosts: db_servers
   become: yes
   tasks:
-    - name: Install EPEL
-      ansible.builtin.yum:
-        name: epel-release
-        state: present
+    #    - name: Install EPEL
+    #      ansible.builtin.yum:
+    #        name: epel-release
+    #        state: present
 
     - name: Install PostreSQL remote repo
       ansible.builtin.yum:
@@ -56,6 +56,7 @@
         group: postgres
         mode: '0600'
         force: true
+      notify: Restart PostgreSQL
 
     # Запускаем сервис т.к. слоты и пользователь репликации добавляются уже на работающей БД
     - name: Start service PostgreSQL
@@ -78,25 +79,25 @@
         name: repluser
         role_attr_flags: REPLICATION,LOGIN
 
+    # Создаем слот для репликации/бекапа
+    - name: Create physical_one physical slot if doesn't exist
+      become_user: postgres
+      community.postgresql.postgresql_slot:
+        slot_name: replislot
+    
     # Добавляем хотсы с которых можно будет соединиться с БД. В Рамках теста метод выбрал trust. Стоит заменить на md5
     - name: Edit pg_hba.conf
       lineinfile:
         path: /var/lib/pgsql/15/data/pg_hba.conf
         line: "host   replication   repluser    {{ hostvars[item].ansible_host }}/32    trust"
       with_items: "{{ groups.db_servers }}"
+      notify: Restart PostgreSQL
 
-    # Создаем слот для репликации/бекапа
-    - name: Create physical_one physical slot if doesn't exist
-      become_user: postgres
-      community.postgresql.postgresql_slot:
-        slot_name: replislot
-
-    # Перенести в хендлер
-    - name: restart PG
+  handlers:
+    - name: Restart PostgreSQL
       ansible.builtin.service:
         name: postgresql-15
         state: restarted
-
 
 - name: Prep StandBy
   hosts: standby
@@ -111,8 +112,7 @@
     # C Master сервер получаем бекап кластера postregsql
     - name: Get backup DB
       become_user: postgres
-      ansible.builtin.shell: |
-        pg_basebackup -P -R -h {{ hostvars[item].ansible_host }} -U repluser -D /var/lib/pgsql/15/data -S physical_one
+      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U repluser -D /var/lib/pgsql/15/data -S replislot"
       when: not pgc.stat.exists
       with_items: "{{ groups.master }}"
 
@@ -122,3 +122,9 @@
         name: postgresql-15
         state: started
 
+          #  # Пока не используется. Добавил на всякий случай
+          #  handlers:
+          #    - name: Restart PostgreSQL
+          #      ansible.builtin.service:
+          #        name: postgresql-15
+          #        state: restarted
