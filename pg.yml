@@ -1,0 +1,91 @@
+---
+- name: Prep servers
+  hosts: db_servers
+  become: yes
+  tasks:
+    - name:
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
+    
+    - name: Install PostreSQL remote repo
+      ansible.builtin.yum:
+        name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+        state: present
+
+    - name:
+      ansible.builtin.yum:
+        name: 
+          - postgresql15
+          - postgresql15-server
+          - postgresql15-contrib
+          - python-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Open PostgreSQL port
+      ansible.posix.firewalld:
+        port: 5432/tcp
+        permanent: true
+        state: enabled
+
+
+- name: Prep Master
+  hosts: master
+  become: yes
+  tasks:
+    - name: Get stats of a file
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/15/data/postgresql.conf
+      register: pgc
+
+    - name: Init DB
+      ansible.builtin.shell: |
+        /usr/pgsql-15/bin/postgresql-15-setup initdb
+      when: not pgc.stat.exists
+
+    - name: Copy postgresql.conf
+      ansible.builtin.copy:
+        src: postgresql.conf
+        dest: /var/lib/pgsql/15/data/postgresql.conf
+        owner: postgres
+        group: postgres
+        mode: '0600'
+        force: true
+
+    - name: Start service PostgreSQL
+      ansible.builtin.service:
+        name: postgresql-15
+        state: started
+
+          #    - name: Add replication role
+          #      become_user: postgres
+          #      ansible.builtin.shell: |
+          #        psql -c "CREATE ROLE repluser WITH REPLICATION LOGIN;"
+          #      register: result
+          #      failed_when: "'already exists' not in result.stderr and 'CREATE ROLE' not in result.stdout"
+
+    - name: add repluser
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: repluser
+        role_attr_flags: REPLICATION,LOGIN
+
+    - name: Edit pg_hba.conf
+      lineinfile:
+        path: /var/lib/pgsql/15/data/pg_hba.conf
+        line: "host   replication   repluser    {{ item }}/32    trust"
+      with_items:
+        - "192.168.1.14"
+        - "192.168.1.15"
+
+    - name: restart PG
+      ansible.builtin.service:
+        name: postgresql-15
+        state: restarted
+
+
+- name: Prep StandBy
+  hosts: standby
+  become: yes
+  tasks:
