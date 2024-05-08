@@ -3,10 +3,10 @@
   hosts: db_servers
   become: yes
   tasks:
-    #    - name: Install EPEL
-    #      ansible.builtin.yum:
-    #        name: epel-release
-    #        state: present
+    - name: Install EPEL
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
 
     - name: Install PostreSQL remote repo
       ansible.builtin.yum:
@@ -26,6 +26,7 @@
     - name: Open PostgreSQL port
       ansible.posix.firewalld:
         port: 5432/tcp
+        immediate: true
         permanent: true
         state: enabled
 
@@ -62,6 +63,7 @@
     - name: Start service PostgreSQL
       ansible.builtin.service:
         name: postgresql-15
+        enabled: true
         state: started
 
     # Тут делал добавление пользователя методами ansible ,tp 
@@ -120,6 +122,7 @@
     - name: Start service PostgreSQL
       ansible.builtin.service:
         name: postgresql-15
+        enabled: true
         state: started
 
           #  # Пока не используется. Добавил на всякий случай
