@@ -1,0 +1,17 @@
+---
+# tasks file for promote_pg_standby
+  - block:
+
+    # Повышаем StandBy до Master
+    - name: Promote DB
+      ansible.builtin.shell: |
+        /usr/pgsql-15/bin/pg_ctl promote -D /var/lib/pgsql/15/data
+
+    # Создаем слот для репликации/бекапа
+    - name: Create physical_one physical slot if doesn't exist
+      community.postgresql.postgresql_slot:
+        slot_name: "{{ pg_replication_slot }}"
+      when: use_replication_slot | bool
+
+    become: yes
+    become_user: postgres

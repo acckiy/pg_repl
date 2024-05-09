@@ -1,0 +1,13 @@
+---
+  - name: Setup PostgreSQL Master
+    hosts: master
+    gather_facts: yes
+    roles:
+      - init_pg_master
+
+
+  - name: Setup PostgreSQL StandBy
+    hosts: standby
+    gather_facts: yes
+    roles:
+      - init_pg_standby

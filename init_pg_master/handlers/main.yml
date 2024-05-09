@@ -1,0 +1,9 @@
+---
+# handlers file for init_pg_master
+
+ # Перезапустить PostgreSQL
+  - name: Restart PostgreSQL
+    ansible.builtin.service:
+      name: postgresql-15
+      state: restarted
+

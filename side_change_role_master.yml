@@ -1,0 +1,6 @@
+---
+  - name: Promote StandBy
+    hosts: master
+    gather_facts: yes
+    roles:
+      - change_role_pg_master

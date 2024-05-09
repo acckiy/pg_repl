@@ -1,0 +1,10 @@
+---
+# defaults file for promote_pg_standby
+
+# Репликация с использованием replication slot
+# true or false
+use_replication_slot: yes
+
+# Имя слота для репликации
+pg_replication_slot: replislot
+

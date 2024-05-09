@@ -1,0 +1,60 @@
+---
+# tasks file for init_pg_standby
+  - block:
+
+    - name: Install EPEL
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
+
+    - name: Install PostreSQL remote repo
+      ansible.builtin.yum:
+        name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+        state: present
+
+    - name: Install PostgreSQL and psycopg2(for community.postgresql ansible module)
+      ansible.builtin.yum:
+        name:
+          - postgresql15
+          - postgresql15-server
+          - postgresql15-contrib
+          - python-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Open PostgreSQL port
+      ansible.posix.firewalld:
+        port: "5432/tcp"
+        immediate: true
+        permanent: true
+        state: enabled
+
+    # Проверяю проводилась ли настройка сервера ранее. Если файл конфига есть, то БД уже настраивалась ранее
+    - name: Check DB
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/15/data/postgresql.conf
+      register: pgc
+
+    # C Master сервер получаем бекап кластера postregsql без использования слота
+    - name: Get backup DB without replication slot
+      become_user: postgres
+      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U {{ pg_replication_user }} -D /var/lib/pgsql/15/data"
+      when: not pgc.stat.exists and not use_replication_slot
+      with_items: "{{ groups.master }}"
+
+     # C Master сервер получаем бекап кластера postregsql с использованием слота
+    - name: Get backup DB with replication slot
+      become_user: postgres
+      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U {{ pg_replication_user }} -D /var/lib/pgsql/15/data -S {{ pg_replication_slot }}"
+      when: not pgc.stat.exists and use_replication_slot
+      with_items: "{{ groups.master }}"
+
+
+    # Запускаем сервис
+    - name: Start service PostgreSQL
+      ansible.builtin.service:
+        name: postgresql-15
+        enabled: true
+        state: started
+
+    become: yes

@@ -1,0 +1,13 @@
+---
+# defaults file for change_role_pg_master
+
+# Репликация с использованием replication slot
+# true or false
+use_replication_slot: true
+
+# Имя пользователя для репликации
+pg_replication_user: repluser
+
+# Имя слота для репликации
+pg_replication_slot: replislot
+

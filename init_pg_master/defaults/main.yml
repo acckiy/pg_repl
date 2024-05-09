@@ -1,7 +1,9 @@
 ---
+# defaults file for init_pg_master
+
 # Репликация с использованием replication slot
 # true or false
-use_replication_slot: true
+use_replication_slot: yes
 
 # Имя пользователя для репликации
 pg_replication_user: repluser
@@ -31,5 +33,6 @@ max_replication_slots: 10
 # Подключение к мастеру. Игнорируется если хост - Мастер
 # https://postgrespro.ru/docs/postgrespro/15/libpq-connect#LIBPQ-CONNSTRING
 # Пока не используется, т.к. при настройке сервера через pg_basebackup будет перезаписан в файл postgres.auto.conf
-primary_conninfo: ''                 
-primary_slot_name: ''    
+primary_conninfo: ''
+primary_slot_name: ''
+

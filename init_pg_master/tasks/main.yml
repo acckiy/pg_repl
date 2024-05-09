@@ -1,0 +1,84 @@
+---
+# tasks file for init_pg_master
+  - block:
+
+    - name: Install EPEL
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
+
+    - name: Install PostreSQL remote repo
+      ansible.builtin.yum:
+        name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+        state: present
+
+    - name: Install PostgreSQL and psycopg2(for community.postgresql ansible module)
+      ansible.builtin.yum:
+        name:
+          - postgresql15
+          - postgresql15-server
+          - postgresql15-contrib
+          - python-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Open PostgreSQL port
+      ansible.posix.firewalld:
+        port: "5432/tcp"
+        immediate: true
+        permanent: true
+        state: enabled
+
+    # Проверяем наличие конфига/БД на текущем сервере. Если он есть, то следующий шаг пропускаем.
+    - name: Get stats of a file
+      ansible.builtin.stat:
+        path: /var/lib/pgsql/15/data/postgresql.conf
+      register: pgc
+
+    # Создаем базу с нуля. Можно будет заменить этот блок вытягиванием БД из резерва.
+    - name: Init DB
+      ansible.builtin.shell: |
+        /usr/pgsql-15/bin/postgresql-15-setup initdb
+      when: not pgc.stat.exists
+
+
+    # Кладем конфиг. Если новый то хендлером перезапускаем в конце сервис
+    - name: Copy postgresql.conf
+      ansible.builtin.template:
+        src: postgresql.conf.j2
+        dest: /var/lib/pgsql/15/data/postgresql.conf
+        owner: postgres
+        group: postgres
+        mode: '0600'
+      notify: Restart PostgreSQL
+
+    # Запускаем сервис т.к. слоты и пользователь репликации добавляются уже на работающей БД
+    - name: Start service PostgreSQL
+      ansible.builtin.service:
+        name: postgresql-15
+        enabled: true
+        state: started
+
+          # Добавляем пользователя с правами на репликацию и логин
+    - name: Add replication user to DB
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ pg_replication_user }}"
+        role_attr_flags: REPLICATION,LOGIN
+
+    # Создаем слот для репликации/бекапа
+    - name: Create physical_one physical slot if doesn't exist
+      become_user: postgres
+      community.postgresql.postgresql_slot:
+        slot_name: "{{ pg_replication_slot }}"
+      when: use_replication_slot
+
+    # Добавляем хотсы с которых можно будет соединиться с БД. В Рамках теста метод выбрал trust. Стоит заменить на md5
+    - name: Edit pg_hba.conf
+      lineinfile:
+        path: /var/lib/pgsql/15/data/pg_hba.conf
+        line: "host   replication   {{ pg_replication_user }}    {{ hostvars[item].ansible_host }}/32    trust"
+      with_items: "{{ groups.db_servers }}"
+      notify: Restart PostgreSQL
+
+    become: yes
