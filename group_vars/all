@@ -1,0 +1,35 @@
+---
+# Репликация с использованием replication slot
+# true or false
+use_replication_slot: yes
+
+# Имя пользователя для репликации
+pg_replication_user: repluser
+
+# Имя слота для репликации
+pg_replication_slot: replislot
+
+# Master settings
+
+# Хранить подсказки. Требуется если планируется использовать pg_rewind. default=off
+wal_log_hints: off
+
+# Задаёт минимальный объём прошлых сегментов журнала, который будет сохраняться в каталоге pg_wal, чтобы ведомый сервер мог выбрать их при потоковой репликации. default=0
+# При использовании слота 0
+wal_keep_size: 0
+
+
+# Задаёт максимально допустимое число одновременных подключений ведомых серверов или клиентов потокового копирования. default=10
+max_wal_senders: 16
+
+# Синхронная запись WAL страниц
+synchronous_commit: off
+
+# Задаёт максимальное число слотов репликации, которое сможет поддерживать сервер.
+max_replication_slots: 10
+
+# Подключение к мастеру. Игнорируется если хост - Мастер
+# https://postgrespro.ru/docs/postgrespro/15/libpq-connect#LIBPQ-CONNSTRING
+# Пока не используется, т.к. при настройке сервера через pg_basebackup будет перезаписан в файл postgres.auto.conf
+primary_conninfo: ''                 
+primary_slot_name: ''    

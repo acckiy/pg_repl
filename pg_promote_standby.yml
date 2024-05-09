@@ -12,5 +12,5 @@
       - name: Create physical_one physical slot if doesn't exist
         become_user: postgres
         community.postgresql.postgresql_slot:
-          slot_name: replislot
+          slot_name: "{{ pg_replication_slot }}"
 

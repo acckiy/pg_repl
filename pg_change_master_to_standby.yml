@@ -23,7 +23,7 @@
 
       - name: Get backup DB
         become_user: postgres
-        ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U repluser -D /var/lib/pgsql/15/data -S replislot"
+        ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U {{ pg_replication_user }} -D /var/lib/pgsql/15/data -S {{ pg_replication_slot }}"
         with_items: "{{ groups.standby }}"
       
       - name: Start service postgresql

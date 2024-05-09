@@ -3,6 +3,7 @@
   hosts: db_servers
   become: yes
   tasks:
+
     - name: Install EPEL
       ansible.builtin.yum:
         name: epel-release
@@ -25,7 +26,7 @@
 
     - name: Open PostgreSQL port
       ansible.posix.firewalld:
-        port: 5432/tcp
+        port: "5432/tcp"
         immediate: true
         permanent: true
         state: enabled
@@ -50,13 +51,12 @@
 
     # Кладем конфиг. Если новый то хендлером перезапускаем в конце сервис
     - name: Copy postgresql.conf
-      ansible.builtin.copy:
-        src: postgresql.conf
+      ansible.builtin.template:
+        src: postgresql.conf.j2
         dest: /var/lib/pgsql/15/data/postgresql.conf
         owner: postgres
         group: postgres
         mode: '0600'
-        force: true
       notify: Restart PostgreSQL
 
     # Запускаем сервис т.к. слоты и пользователь репликации добавляются уже на работающей БД
@@ -70,28 +70,29 @@
 #    - name: Add replication role
 #      become_user: postgres
 #      ansible.builtin.shell: |
-#        psql -c "CREATE ROLE repluser WITH REPLICATION LOGIN;"
+#        psql -c "CREATE ROLE {{ pg_replication_user }} WITH REPLICATION LOGIN;"
 #      register: result
 #      failed_when: "'already exists' not in result.stderr and 'CREATE ROLE' not in result.stdout"
 
     # Добавляем пользователя с правами на репликацию и логин
-    - name: add repluser
+    - name: Add replication user to DB
       become_user: postgres
       community.postgresql.postgresql_user:
-        name: repluser
+        name: "{{ pg_replication_user }}"
         role_attr_flags: REPLICATION,LOGIN
 
     # Создаем слот для репликации/бекапа
     - name: Create physical_one physical slot if doesn't exist
       become_user: postgres
       community.postgresql.postgresql_slot:
-        slot_name: replislot
+        slot_name: "{{ pg_replication_slot }}"
+      when: use_replication_slot
     
     # Добавляем хотсы с которых можно будет соединиться с БД. В Рамках теста метод выбрал trust. Стоит заменить на md5
     - name: Edit pg_hba.conf
       lineinfile:
         path: /var/lib/pgsql/15/data/pg_hba.conf
-        line: "host   replication   repluser    {{ hostvars[item].ansible_host }}/32    trust"
+        line: "host   replication   {{ pg_replication_user }}    {{ hostvars[item].ansible_host }}/32    trust"
       with_items: "{{ groups.db_servers }}"
       notify: Restart PostgreSQL
 
@@ -111,12 +112,20 @@
         path: /var/lib/pgsql/15/data/postgresql.conf
       register: pgc
 
-    # C Master сервер получаем бекап кластера postregsql
-    - name: Get backup DB
+    # C Master сервер получаем бекап кластера postregsql без использования слота
+    - name: Get backup DB without replication slot
       become_user: postgres
-      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U repluser -D /var/lib/pgsql/15/data -S replislot"
-      when: not pgc.stat.exists
+      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U {{ pg_replication_user }} -D /var/lib/pgsql/15/data"
+      when: not pgc.stat.exists and not use_replication_slot
       with_items: "{{ groups.master }}"
+
+     # C Master сервер получаем бекап кластера postregsql с использованием слота
+    - name: Get backup DB with replication slot
+      become_user: postgres
+      ansible.builtin.shell: "pg_basebackup -R -h {{ hostvars[item].ansible_host }} -U {{ pg_replication_user }} -D /var/lib/pgsql/15/data -S {{ pg_replication_slot }}"
+      when: not pgc.stat.exists and use_replication_slot
+      with_items: "{{ groups.master }}"
+
 
     # Запускаем сервис
     - name: Start service PostgreSQL
