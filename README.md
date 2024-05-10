@@ -1,4 +1,4 @@
-# pg_repl_roles
+# pg_repl
 
 В документе описаны 4 роли:
 1) pg_init_master - Настройка Master
