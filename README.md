@@ -1,5 +1,6 @@
 #pg_repl
 
+
 В документе описаны 4 роли:
 1) pg_init_master - Настройка Master
 2) pg_init_standby - Настройка StandBy
@@ -34,6 +35,15 @@ standby:
 ```
 
 Креды лежат в зашифрованном файле ansible-vault `hosts_info.yml`
+Содержимое которого:
+```yml
+---
+server01_user: root
+server01_pass: password
+
+server02_user: root
+server02_pass: password
+```
 
 Параметры который необходимо задать для работы серверов и скриптов описаны в файле **`group_vars/all`**
 
