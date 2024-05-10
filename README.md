@@ -1,4 +1,3 @@
-# pg_repl
 
 В документе описаны 4 роли:
 1) pg_init_master - Настройка Master
@@ -39,6 +38,14 @@ standby:
 + `side.yml` - Настраивает Master(роль pg_init_master) , затем настраивает StandBy(роль pg_init_standby). Запуск роли pg_init_standby выполняется после pg_init_master
 + `side_promote.yml` - запускает роль pg_promote_standby для хоста `server02`
 + `side_change_role_master.yml` - запускает роль pg_change_role_master для хоста `server01`
+
+Пример запуска
+```bash
+ansible-playbook -i hosts.yml side.yml
+ansible-playbook -i hosts.yml side_promote.yml
+ansible-playbook -i hosts.yml side_change_role_master.yml
+```
+
 
 После настройки параметров и инвентори можно запустить плейбуки:
 
