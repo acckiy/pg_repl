@@ -1,3 +1,4 @@
+#pg_repl
 
 В документе описаны 4 роли:
 1) pg_init_master - Настройка Master
@@ -9,18 +10,18 @@
 Сервера, должны быть запущены.
 В данном случае авторизация происходит по паре логин/пароль
 
-Структура инвентори:
+Структура инвентори `hosts.yml`:
 ```yaml
 db_servers:
   hosts:
     server01:
       ansible_host: <ip>
-      ansible_user: <user>
-      ansible_password: <password>
+      ansible_user: "{{ server01_user}}"
+      ansible_password: "{{ server01_pass}}"
     server02:
       ansible_host: <ip>
-      ansible_user: <user>
-      ansible_password: <password>
+      ansible_user: "{{ server02_user}}"
+      ansible_password: "{{ server02_pass}}"
 
 master:
   hosts:
@@ -32,6 +33,8 @@ standby:
     server02:
 ```
 
+Креды лежат в зашифрованном файле ansible-vault `hosts_info.yml`
+
 Параметры который необходимо задать для работы серверов и скриптов описаны в файле **`group_vars/all`**
 
 В корне папки проекта также лежат 3 плейбука, которые выполняют поставленные задачи:
@@ -41,9 +44,9 @@ standby:
 
 Пример запуска
 ```bash
-ansible-playbook -i hosts.yml side.yml
-ansible-playbook -i hosts.yml side_promote.yml
-ansible-playbook -i hosts.yml side_change_role_master.yml
+ansible-playbook -i hosts.yml side.yml --ask-vault-pass
+ansible-playbook -i hosts.yml side_promote.yml --ask-vault-pass
+ansible-playbook -i hosts.yml side_change_role_master.yml --ask-vault-pass
 ```
 
 
@@ -51,7 +54,7 @@ ansible-playbook -i hosts.yml side_change_role_master.yml
 
 Выполняем конфигурацию:
 ```bash
-ansible-playbook -i hosts.yml side.yml
+ansible-playbook -i hosts.yml side.yml --ask-vault-pass
 ```
 логинимся на мастер
 ```bash
@@ -108,7 +111,7 @@ psql -c "SELECT * FROM test_table;"
 Выполняем с управляющего хоста
 ```bash
 # Переводим StandBy в Master
-ansible-playbook -i hosts.yml side_promote.yml
+ansible-playbook -i hosts.yml side_promote.yml --ask-vault-pass
 ```
 
 ```bash
@@ -119,7 +122,7 @@ psql -c "SELECT * FROM test_table;"
 
 Выполняем с управляющего хоста
 ```bash
-ansible-playbook -i hosts.yml side_change_role_master.yml
+ansible-playbook -i hosts.yml side_change_role_master.yml --ask-vault-pass
 ```
 
 ```bash
@@ -162,3 +165,5 @@ psql -c "SELECT * FROM test_table;"
 su - postgres
 psql -c "SELECT * FROM test_table;"
 ```
+
+

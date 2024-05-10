@@ -2,6 +2,7 @@
   - name: Setup PostgreSQL Master
     hosts: master
     gather_facts: yes
+    vars_files: hosts_info.yml
     roles:
       - pg_init_master
 
@@ -9,5 +10,7 @@
   - name: Setup PostgreSQL StandBy
     hosts: standby
     gather_facts: yes
+    vars_files: hosts_info.yml
     roles:
       - pg_init_standby
+
