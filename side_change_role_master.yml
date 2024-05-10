@@ -3,4 +3,4 @@
     hosts: master
     gather_facts: yes
     roles:
-      - change_role_pg_master
+      - pg_change_role_master

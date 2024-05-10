@@ -3,4 +3,4 @@
     hosts: standby
     gather_facts: yes
     roles:
-      - promote_pg_standby
+      - pg_promote_standby

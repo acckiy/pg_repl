@@ -3,11 +3,11 @@
     hosts: master
     gather_facts: yes
     roles:
-      - init_pg_master
+      - pg_init_master
 
 
   - name: Setup PostgreSQL StandBy
     hosts: standby
     gather_facts: yes
     roles:
-      - init_pg_standby
+      - pg_init_standby
