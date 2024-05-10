@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
-  remote_user: root
-  roles:
-    - init_pg_master
+  - name: Setup PostgreSQL Master
+    hosts: master
+    gather_facts: yes
+    roles:
+      - pg_init_master

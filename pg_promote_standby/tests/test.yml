@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
-  remote_user: root
-  roles:
-    - promote_pg_standby
+  - name: Promote StandBy
+    hosts: standby
+    gather_facts: yes
+    roles:
+      - pg_promote_standby

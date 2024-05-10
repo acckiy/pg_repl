@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
-  remote_user: root
-  roles:
-    - init_pg_standby
+  - name: Setup PostgreSQL StandBy
+    hosts: standby
+    gather_facts: yes
+    roles:
+      - pg_init_standby
