@@ -2,6 +2,6 @@
   - name: Promote StandBy
     hosts: master
     gather_facts: yes
-    vars_files: hosts_info.yml
+    vars_files: secret.yml
     roles:
       - pg_change_role_master

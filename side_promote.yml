@@ -2,6 +2,6 @@
   - name: Promote StandBy
     hosts: standby
     gather_facts: yes
-    vars_files: hosts_info.yml
+    vars_files: secret.yml
     roles:
       - pg_promote_standby

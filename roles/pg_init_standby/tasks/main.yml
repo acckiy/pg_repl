@@ -1,6 +1,9 @@
 ---
 # tasks file for init_pg_standby
   - block:
+    # Сбор данных о сервисах
+    - name: Populate service facts
+      service_facts:
 
     - name: Install EPEL
       ansible.builtin.yum:
@@ -19,8 +22,38 @@
           - postgresql15-server
           - postgresql15-contrib
           - python-psycopg2
+    # Добавил установку пакетов firewalld
+          - firewalld
+          - python-firewall
         state: present
         update_cache: true
+
+    
+    # если не устанавливать firewalld то тут будет блок правил по настройке iptables
+    # пока не имел с ним опыта работы. Надо проверять и тестировать как сохранять правила на случай перезагрузки хоста.
+    - block:
+      - name: Add iptables rule
+        ansible.builtin.iptables:
+          chain: INPUT
+          destination_port: 5432
+          jump: ACCEPT
+          protocol: tcp
+      when: ansible_facts.services['firewalld.service'] is not defined
+
+          
+    - name: Start firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Start and enable firewalld
+      ansible.builtin.systemd_service:
+        name: firewalld
+        state: started
+        enabled: true
+        masked: no
+      when: ansible_facts.services['firewalld.service'] is defined
 
     - name: Open PostgreSQL port
       ansible.posix.firewalld:
