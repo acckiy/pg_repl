@@ -85,6 +85,17 @@
         enabled: true
         state: started
 
+    - name: Add connections into pg_hba
+      ansible.builtin.template:
+        src: pg_hba.conf.j2
+        dest: /var/lib/pgsql/15/data/pg_hba.conf
+        owner: postgres
+        group: postgres
+        mode: '0600'
+      notify: Restart PostgreSQL
+
+
+
     # Добавляем пользователя с правами на репликацию и логин
     - name: Add replication user to DB
       become_user: postgres
@@ -98,13 +109,5 @@
       community.postgresql.postgresql_slot:
         slot_name: "{{ pg_replication_slot }}"
       when: use_replication_slot
-
-    # Добавляем хотсы с которых можно будет соединиться с БД. В Рамках теста метод выбрал trust. Стоит заменить на md5
-    - name: Edit pg_hba.conf
-      lineinfile:
-        path: /var/lib/pgsql/15/data/pg_hba.conf
-        line: "host   replication   {{ pg_replication_user }}    {{ hostvars[item].ansible_host }}/32    trust"
-      with_items: "{{ groups.db_servers }}"
-      notify: Restart PostgreSQL
 
     become: yes

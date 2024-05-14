@@ -1,0 +1,29 @@
+---
+pg_hba_connections:
+  - type: host
+    database: replication
+    user: repluser
+    address: "{{ hostvars['server01'].ansible_host }}/32"
+    method: trust
+
+  - type: host
+    database: replication
+    user: repluser
+    address: "{{ hostvars['server02'].ansible_host }}/32"
+    method: trust
+
+  - type: host
+    database: all
+    user: postgres
+    address: 10.0.2.15/32
+    method: md5
+  - type: host
+    database: all
+    user: postgres
+    address: 10.0.2.166/32
+    method: md5
+  - type: host
+    database: all
+    user: postgres
+    address: 10.0.4.16/32
+    method: md5
